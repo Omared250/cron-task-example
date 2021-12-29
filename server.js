@@ -34,13 +34,51 @@ const getAllUsers = async (req, res) => {
 }
 
 cron.schedule('* * * * *', async () => {
-    const query = `select frequency from tidy_group where id=1`;
-    const result = await connection.query(query);
-    const frequencyResult = result.rows[0].frequency;
+
+    const dateQuery = `select starting_date from tasks where group_id=7`
+
+    const dateResult = await connection.query(dateQuery);
+
+    const dateResponse = dateResult.rows[0].starting_date;
+
+    function addDays(date, days) {
+        date.setDate(date.getDate() + days)
+        return date;
+    }
+
+    // date from database plus 7 days 
+    const newDate = addDays(dateResponse, 3);
+
+    // current date
+    const currentDate = new Date();
+
+    console.log(newDate);
+    console.log(currentDate);
+
+    // we need to change the format of the date because just we want to match the days not the exactly hour
+    if (newDate === currentDate) {
+        console.log('Chnaging frequency!!!');
+    } else {
+        console.log('It is working but is not the date to change frequency!!');
+    }
+
+
+    // we should find a way to change the id of the group
+    const frequencyQuery = `select frequency from tidy_group where id=7`;
+
+    const result = await connection.query(frequencyQuery);
+
+    // getting the exact value of the frequency
+    const frequencyResult = result.rows[0].frequency
+
+    // checking if the frequency match 
     if (frequencyResult === 'weekly') {
         console.log('It is working!!');
+    } else {
+        console.log('it is working but it is not weekly');
     }
-    console.log('running a task every second');
+
+    console.log('running a task every minute');
   });
 
 app.use(bodyParser.json());

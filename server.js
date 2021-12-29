@@ -10,8 +10,6 @@ const connection = new Pool(secrest);
 //   console.log('running a task every minute');
 // });
 
-
-
 /* 
 
 ---- dentro de la funcion
@@ -39,7 +37,9 @@ cron.schedule('* * * * *', async () => {
     const query = `select frequency from tidy_group where id=1`;
     const result = await connection.query(query);
     const frequencyResult = result.rows[0].frequency;
-    console.log(frequencyResult);
+    if (frequencyResult === 'weekly') {
+        console.log('It is working!!');
+    }
     console.log('running a task every second');
   });
 

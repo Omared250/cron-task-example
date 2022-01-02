@@ -5,25 +5,6 @@ const PORT = 8000;
 const secrest = require('./secret.json');
 const { Pool } = require('pg');
 const connection = new Pool(secrest);
-
-// cron.schedule('* * * * *', () => {
-//   console.log('running a task every minute');
-// });
-
-/* 
-
----- dentro de la funcion
-- query : fecha de creacion, user_id, group_id, frequency (obtener la informacion exacta de cada columna antes mencionada)
-- validacion de las frequencias fecha de creacion con fecha actual teniendo encuenta la frequencia escogida
-- intercambio de roomies asignados a las diferentes tareas segun su group id
-
-- intercambiar tareas entre los roomies del mismo grupo
-- actualizar tabla task user_id
-- segun la frecuencia que escogio el admin
-
-*/
-
-// CRON
 const cron = require('node-cron');
 const { json } = require('express/lib/response');
 
@@ -33,55 +14,36 @@ const getAllUsers = async (req, res) => {
     return await res.send(result.rows);
 }
 
-cron.schedule('* * * * *', async () => {
+const rotateUsers = async () => {
 
-    const dateQuery = `select starting_date from tasks where group_id=7`
+   const rotationQuery = `UPDATE 
+  tasks t
+SET
+  starting_date = NOW(),
+  user_id = 
+     COALESCE(
+        (SELECT id FROM users WHERE group_id = g.id and id > COALESCE(t.user_id, 0) LIMIT 1), /*get the next user*/
+        (SELECT min(id) FROM users WHERE group_id = g.id) /*go back to first user*/
+     ),
+  task_completed = false
+FROM 
+  tidy_group g
+WHERE
+  t.group_id = g.id 
+  AND NOW() >= t.starting_date + (
+     CASE 
+        WHEN g.frequency = 'weekly' THEN INTERVAL '7' DAY
+        WHEN g.frequency = 'biweekly' THEN INTERVAL '14' DAY
+        ELSE interval '30' DAY 
+     END)`;
 
-    const dateResult = await connection.query(dateQuery);
-
-    const dateResponse = dateResult.rows[0].starting_date;
-
-    function addDays(date, days) {
-        date.setDate(date.getDate() + days)
-        return date;
-    }
-
-    // date from database plus 7 days 
-    const newDate = addDays(dateResponse, 3);
-
-    // current date
-    const currentDate = new Date();
-
-    console.log(newDate);
-    console.log(currentDate);
-
-    // we need to change the format of the date because just we want to match the days not the exactly hour
-    if (newDate === currentDate) {
-        console.log('Chnaging frequency!!!');
-    } else {
-        console.log('It is working but is not the date to change frequency!!');
-    }
-
-
-    // we should find a way to change the id of the group
-    const frequencyQuery = `select frequency from tidy_group where id=7`;
-
-    const result = await connection.query(frequencyQuery);
-
-    // getting the exact value of the frequency
-    const frequencyResult = result.rows[0].frequency
-
-    // checking if the frequency match 
-    if (frequencyResult === 'weekly') {
-        console.log('It is working!!');
-    } else {
-        console.log('it is working but it is not weekly');
-    }
-
-    console.log('running a task every minute');
-  });
+   console.log('Starting rotate users job')    
+   await connection.query(rotationQuery);
+   console.log('Rotate users job has ended')
+}
 
 app.use(bodyParser.json());
 app.get('/users', getAllUsers);
+cron.schedule('0 1 * * *', rotateUsers);
 
 app.listen(PORT, () => console.log(`Server is running at port ${PORT}`))
